@@ -1,0 +1,13 @@
+/build*/
+/dist/
+/render/
+/_deps/
+__pycache__/
+*.pyc
+*.log
+*.exe
+*.wav
+*.ppm
+*.mp4
+.DS_Store
+Thumbs.db

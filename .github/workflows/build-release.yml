@@ -1,0 +1,182 @@
+name: Build, test and release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: astra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  windows:
+    name: Windows x64 / 64k build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Check version and install build tools
+        run: |
+          python3 tools/check-version.py
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 cmake upx-ucl
+      - name: Build and enforce the 64,000-byte limit
+        run: |
+          cmake -S . -B build-windows -DCMAKE_TOOLCHAIN_FILE=cmake/mingw-x64.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-windows --parallel 2
+      - name: Package Windows executable and notices
+        run: |
+          version=$(cat VERSION)
+          python3 tools/package-release.py --platform windows-x64 --binary "build-windows/Astra-v${version}-windows-x64.exe"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-windows-x64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  windows-smoke:
+    name: Execute Windows EXE / audio selftest
+    needs: windows
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: release-windows-x64
+          path: dist
+      - name: Exercise the native entry point and synthesizer
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem dist -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Missing Windows executable' }
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--selftest-audio' -WorkingDirectory $PWD.Path -PassThru
+          if (-not $process.WaitForExit(120000)) {
+            $process.Kill()
+            throw 'Astra audio selftest timed out'
+          }
+          if ($process.ExitCode -ne 0) { throw "Astra exit code: $($process.ExitCode)" }
+          python tools/check-audio.py Astra-audio-selftest.wav
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid soundtrack' }
+      - name: Preserve startup diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: windows-selftest-log
+          path: dist/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux:
+    name: Linux ${{ matrix.arch }} / native SDL
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install build and software-rendering dependencies
+        run: |
+          python3 tools/check-version.py
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libsdl2-dev libgl1-mesa-dev libosmesa6-dev xvfb xauth
+      - name: Compile native player and shared-engine tests
+        run: |
+          cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release -DASTRA_BUILD_TESTS=ON
+          cmake --build build-native --parallel 2
+      - name: Test numerical paths, rendering, audio cursor and pause
+        env:
+          ASTRA_ARCH: ${{ matrix.arch }}
+          SDL_AUDIODRIVER: dummy
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          ctest --test-dir build-native --output-on-failure
+          version=$(cat VERSION)
+          xvfb-run -a "build-native/Astra-v${version}-linux-${ASTRA_ARCH}" --selftest
+          python3 tools/check-audio.py Astra-audio-selftest.wav
+      - name: Package native build
+        env:
+          ASTRA_ARCH: ${{ matrix.arch }}
+        run: |
+          version=$(cat VERSION)
+          python3 tools/package-release.py --platform "linux-${ASTRA_ARCH}" --binary "build-native/Astra-v${version}-linux-${ASTRA_ARCH}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS Apple Silicon / ARM64
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Configure and compile an ARM64 app with static SDL2
+        run: |
+          python3 tools/check-version.py
+          test "$(uname -m)" = arm64
+          cmake -S . -B build-macos -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+          cmake --build build-macos --parallel 3
+      - name: Sign locally and test native synthesis
+        run: |
+          codesign --force --deep --sign - build-macos/Astra.app
+          codesign --verify --deep --strict build-macos/Astra.app
+          build-macos/Astra.app/Contents/MacOS/Astra --selftest-audio
+          python3 tools/check-audio.py Astra-audio-selftest.wav
+      - name: Package app and license notices
+        run: python3 tools/package-release.py --platform macos-arm64 --binary build-macos/Astra.app
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-macos-arm64
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish tagged release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, windows-smoke, linux, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Check archives and publish all four platforms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 tools/check-version.py
+          python3 tools/check-release.py dist
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "Astra $GITHUB_REF_NAME" --generate-notes
