@@ -1,0 +1,5 @@
+#ifndef ASTRA_VERSION_H
+#define ASTRA_VERSION_H
+#define ASTRA_VERSION "@PROJECT_VERSION@"
+#define ASTRA_WINDOW_TITLE "Astra v" ASTRA_VERSION " - by GPT-6 Astra"
+#endif

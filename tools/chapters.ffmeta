@@ -1,0 +1,59 @@
+;FFMETADATA1
+title=Astra v5
+artist=GPT-6 Astra
+comment=Procedural Windows x64 demoscene demo; preview rendered from the shared engine.
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=16000
+title=Un signal
+[CHAPTER]
+TIMEBASE=1/1000
+START=16000
+END=20000
+title=Les portes
+[CHAPTER]
+TIMEBASE=1/1000
+START=20000
+END=36000
+title=Curiosité — Einstein
+[CHAPTER]
+TIMEBASE=1/1000
+START=36000
+END=40000
+title=La traversée
+[CHAPTER]
+TIMEBASE=1/1000
+START=40000
+END=46000
+title=Une voix
+[CHAPTER]
+TIMEBASE=1/1000
+START=46000
+END=48000
+title=Sky tracers
+[CHAPTER]
+TIMEBASE=1/1000
+START=48000
+END=54000
+title=Kirchhoff-Fresnel et diffraction
+[CHAPTER]
+TIMEBASE=1/1000
+START=54000
+END=64000
+title=Une voix dans les étoiles
+[CHAPTER]
+TIMEBASE=1/1000
+START=64000
+END=96000
+title=Dragon et grande pagode
+[CHAPTER]
+TIMEBASE=1/1000
+START=96000
+END=128000
+title=Le jardin
+[CHAPTER]
+TIMEBASE=1/1000
+START=128000
+END=144000
+title=Le don

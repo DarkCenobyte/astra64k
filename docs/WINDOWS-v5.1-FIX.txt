@@ -1,0 +1,91 @@
+ASTRA v5.1 — Windows fix, September 24, 2026
+
+User report: v1 works; subsequent versions do not start.
+
+Cause identified in the distributed executables:
+Starting with v2, replacing -nostartfiles with -nostdlib removed math adapters
+normally supplied by MinGW. Symbols such as sinf, cosf, expf, floorf, and pow
+were resolved by auto-import to IAT entries in .idata. The generated code then
+issued CALL IAT_address instead of an indirect call to the function. .idata is
+not executable. No program initializer processes the pseudo-relocations needed
+to make this resolution work.
+
+Example from the original v2:
+  instruction 0x14000157f: CALL 0x140048418
+  destination: cosf entry in .idata, outside any executable section.
+v1, linked with the standard libraries, does not have this defect.
+v2 is not compressed: UPX cannot explain the initial regression.
+
+Fix:
+- Restore the standard math libraries used by v1 (-nostartfiles, default
+  libraries + -lm) and remove the winmath.c adapters.
+- Disallow auto-import and treat linker warnings as fatal.
+- Check the destinations of direct branches before compression.
+- Add a local log of startup steps and errors.
+- Check window/context/thread creation and the GLSL shaders.
+
+Delivered binary: Astra-v5.1.exe
+Format: PE32+ / AMD64 / Windows GUI.
+Size: 56,320 bytes (55.00 KiB), within the 64,000-byte limit.
+Size before compression: 117,760 bytes.
+Compression: UPX 4.2.2 --best --lzma; integrity check PASS.
+DLLs: GDI32, KERNEL32, msvcrt, OPENGL32, USER32, WINMM; 94 imports.
+No third-party library installation is required.
+
+Targeted verification:
+1. Check branch destinations in the actual binaries listed below.
+2. Rebuilding v2 with auto-import disallowed fails on the missing math
+   symbols. v5.1 passes with this guard enabled.
+3. After UPX compression and decompression, the .text, .data, .rdata,
+   .pdata, .xdata, and .reloc sections are identical; the same 94 imported
+   functions occur at the same IAT addresses. UPX reorganizes import metadata
+   and PE fields, so the decompressed file is not expected to have an
+   identical file hash.
+4. Six Linux/OSMesa images are byte-for-byte identical to v5:
+   2.50, 28.00, 51.40, 72.00, 113.00, and 136.00 seconds.
+   Shader compilation/linking and OpenGL states: PASS.
+5. The 12 files common.h, art.h, portrait.h, particle_book.h, spectrum.h,
+   sky_tracers.h, kirchhoff.h, formula_points.h, pavilion.h, celebration.h,
+   synth.h, and voice.h are identical to their v5 versions.
+   No scene, lyric, score, or duration change.
+
+Verification limit:
+Native execution on Windows was not performed here. Wine cannot initialize
+its server in this environment (socket: Operation not permitted). Linux
+renderings should not be presented as captures of the new Windows EXE.
+The linker defect was observed and removed in the Windows machine code.
+
+User diagnostics:
+Run Astra-v5.1.exe normally. If a problem occurs, send the
+Astra-v5.1.exe.log file created next to the EXE (fallback: Windows %TEMP%
+directory). Astra-v5.1-diagnostic.cmd can run it windowed with --low rendering.
+
+Linker auto-import/pseudo-relocation documentation:
+https://sourceware.org/binutils/docs/ld/Options.html
+
+PE comparison output:
+Astra-v1.exe: PE32+ AMD64; 565 direct branches; 0 invalid destinations
+PASS: every direct CALL/JMP targets executable code
+Astra-v2.exe: PE32+ AMD64; 605 direct branches; 55 invalid destinations
+  0x14000157f -> 0x140048418 (.idata)
+  0x1400015a4 -> 0x140048478 (.idata)
+  0x1400015c9 -> 0x140048478 (.idata)
+  0x1400029b2 -> 0x140048468 (.idata)
+  0x1400029f1 -> 0x140048468 (.idata)
+  0x140002bb7 -> 0x140048468 (.idata)
+  0x140002c98 -> 0x140048478 (.idata)
+  0x1400030e7 -> 0x140048438 (.idata)
+v5-original-unpacked.exe: PE32+ AMD64; 1001 direct branches; 103 invalid destinations
+  0x140001658 -> 0x140059488 (.idata)
+  0x140001686 -> 0x140059488 (.idata)
+  0x1400016bd -> 0x140059488 (.idata)
+  0x140001717 -> 0x140059488 (.idata)
+  0x140001742 -> 0x140059488 (.idata)
+  0x14000176c -> 0x140059488 (.idata)
+  0x140001788 -> 0x140059488 (.idata)
+  0x1400017cf -> 0x140059420 (.idata)
+Astra-v5.1-unpacked.exe: PE32+ AMD64; 1136 direct branches; 0 invalid destinations
+PASS: every direct CALL/JMP targets executable code
+Regression comparison: PASS (v1 accepted, v2/v5 rejected, v5.1 accepted)
+
+SHA-256 Astra-v5.1.exe: 54e83aec80160ef03ca4a898f53cb65d7f825364991848bcd0ace206e831d418
