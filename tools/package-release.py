@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix='astra-package-') as temp:
     shutil.copytree(ROOT/'licenses',stage/'licenses')
     if args.platform.startswith('windows'):
         diagnostic=stage/(name+'-diagnostic.cmd')
-        diagnostic.write_bytes(('@echo off\r\ncd /d "%~dp0"\r\nstart "" /wait "%~dp0'+name+'.exe" --windowed --low\r\necho Diagnostic log: '+name+'.exe.log\r\npause\r\n').encode('ascii'))
+        diagnostic.write_bytes(('@echo off\r\ncd /d "%~dp0"\r\nstart "" /wait "%~dp0'+name+'.exe" --windowed --low\r\npause\r\n').encode('ascii'))
         archive=args.output/(name+'.zip')
         with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as z:
             for entry in sorted(stage.rglob('*')):

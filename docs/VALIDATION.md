@@ -21,7 +21,7 @@ environment. The workflows have not run in a remote GitHub repository.
 | Windows and Linux x64 archives | Contents, checksums, and executable permissions verified |
 | Incorrect architecture during packaging | x64 binary rejected for an ARM64 archive |
 | Version/tag | `v5.2` accepted; mismatched tag rejected |
-| GitHub Actions | YAML checked with actionlint 1.7.12; pinned commits and inputs for the three actions verified |
+| GitHub Actions | YAML checked with actionlint; pinned commits and inputs for checkout, upload/download, and attest actions verified |
 
 Reference Linux WAV SHA-256:
 
@@ -31,6 +31,10 @@ Reference Linux WAV SHA-256:
 
 ## Checks awaiting the first GitHub run
 
+- **Artifact attestations:** generate signed provenance on branch/tag pushes
+  and manual runs (except pull requests), then verify every release file
+  against its tag, commit, and signing
+  workflow. This requires a public repository or GitHub Enterprise Cloud.
 - **Windows:** launch the compressed PE and generate/verify its WAV on
   `windows-2022`. This job does not claim to test Windows GPU rendering.
 - **Linux ARM64:** compile and test the engine and SDL player on
@@ -38,9 +42,9 @@ Reference Linux WAV SHA-256:
 - **macOS ARM64:** build the app bundle, apply an ad hoc signature, check
   dependencies, and synthesize audio on `macos-15`. Graphics rendering still
   needs checking in an actual macOS desktop session.
-- **Release:** download the artifacts, verify the five published files
-  (EXE, Windows ZIP, and three TAR.GZ archives), and publish through `gh`
-  after the jobs succeed.
+- **Release:** download the artifacts, verify the five downloadable builds
+  (EXE, Windows ZIP, and three TAR.GZ archives), their SHA-256 sidecars,
+  and their signed provenance; then publish through `gh` after the jobs succeed.
 
 Local compilation and rendering do not substitute for those native runs.
 The Linux preparation runner cannot start Wine; no Windows machine, ARM64

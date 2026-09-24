@@ -1,5 +1,10 @@
 # Versions
 
+## 5.3 — Minor improvements
+
+- GitHub Actions: updated + add actions/attest.
+- Remove generation of .log files when executing the builds.
+
 ## 5.2 — GitHub-ready sources
 
 - Shared CMake build and centralized version in `VERSION`.
@@ -9,6 +14,8 @@
 - Interactive SDL2 Linux/macOS player with audio, pause, and Escape to quit.
 - Framebuffer support adapted to macOS's legacy OpenGL profile.
 - Archives with licenses, SHA-256 checksums, and automatic tagged releases.
+- Signed build provenance for branch and tag artifacts; verification gates
+  tagged releases, without adding bytes to the 64k executable.
 - README credits GPT-6 Astra for generating the demo and DarkCenobyte for
   the prompts.
 - MIT license for the project's own code, with third-party notices retained.

@@ -6,6 +6,10 @@ import sys
 
 root=Path(sys.argv[1]);version=(Path(__file__).resolve().parents[1]/'VERSION').read_text().strip()
 suffixes=['windows-x64.exe','windows-x64.zip','linux-x64.tar.gz','linux-arm64.tar.gz','macos-arm64.tar.gz']
+expected={f'Astra-v{version}-{suffix}' for suffix in suffixes}
+expected|={name+'.sha256' for name in tuple(expected)}
+observed={path.name for path in root.iterdir()}
+assert observed==expected, f'Unexpected or missing release files: missing={sorted(expected-observed)}, extra={sorted(observed-expected)}'
 for suffix in suffixes:
     file=root/f'Astra-v{version}-{suffix}'
     expected=file.with_name(file.name+'.sha256').read_text().split()[0]

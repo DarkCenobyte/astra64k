@@ -79,7 +79,7 @@ static void *getFramebufferGL(const char *name){
 }
 static int extensions(void){
 #ifdef _WIN32
-#define LOAD(name,type) p##name=(type)getGL(#name);if(!p##name){trace("Missing OpenGL function: " #name);return 0;}
+#define LOAD(name,type) p##name=(type)getGL(#name);if(!p##name){return 0;}
 #else
 #define LOAD(name,type) p##name=(type)getGL(#name);if(!p##name)return 0;
 #endif
@@ -104,11 +104,7 @@ static unsigned shader(unsigned type,const char *src){
     unsigned s=pglCreateShader(type);pglShaderSource(s,1,&src,0);pglCompileShader(s);int ok=0;pglGetShaderiv(s,GL_COMPILE_STATUS,&ok);
     if(!ok){
         char log[2048]={0};pglGetShaderInfoLog(s,2047,0,log);
-#ifdef _WIN32
-        trace("Shader compilation failed");trace(log);
-#else
         fprintf(stderr,"Shader: %s\n",log);
-#endif
         return 0;
     }
     return s;
@@ -120,11 +116,7 @@ static unsigned program(const char *vs,const char *fs){
     int ok=0;pglGetProgramiv(p,GL_LINK_STATUS,&ok);
     if(!ok){
         char log[2048]={0};pglGetProgramInfoLog(p,2047,0,log);
-#ifdef _WIN32
-        trace("Shader program link failed");trace(log);
-#else
         fprintf(stderr,"Program: %s\n",log);
-#endif
         return 0;
     }
     return p;

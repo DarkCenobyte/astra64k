@@ -34,19 +34,24 @@ files during playback. Its soundtrack is synthesized at startup. The Linux and
 macOS ports play the same work; they are not subject to the Windows file-size
 limit.
 
+Builds on branches, tags, and manual runs generate signed GitHub artifact
+attestations for their downloadable files. Pull requests still build and
+run tests. Attestations are stored by GitHub, outside the 64k Windows
+executable.
+
 ## Download and run
 
 After the repository is published, find builds under **Actions → Build, test
-and release → Artifacts**. A version tag such as **`v5.2`** automatically
+and release → Artifacts**. A version tag such as **`v5.3`** automatically
 publishes a **GitHub Release** once all required builds and tests pass.
 Distributed filenames always include the version and target platform.
 
 | Platform | Distributed file | Requirements and launch |
 | --- | --- | --- |
-| Windows x64 | `Astra-v5.2-windows-x64.exe` and a ZIP with notices | Double-click; an OpenGL 3.0 compatibility-capable driver and audio output are required. |
-| Linux x64 | `Astra-v5.2-linux-x64.tar.gz` | Extract and run the binary; desktop SDL2 and OpenGL are required. |
-| Linux ARM64 | `Astra-v5.2-linux-arm64.tar.gz` | Same procedure on ARM64; a desktop OpenGL driver is required. |
-| macOS Apple Silicon | `Astra-v5.2-macos-arm64.tar.gz` | Extract `Astra.app`; macOS 11+; SDL2 is linked statically. |
+| Windows x64 | `Astra-v5.3-windows-x64.exe` and a ZIP with notices | Double-click; an OpenGL 3.0 compatibility-capable driver and audio output are required. |
+| Linux x64 | `Astra-v5.3-linux-x64.tar.gz` | Extract and run the binary; desktop SDL2 and OpenGL are required. |
+| Linux ARM64 | `Astra-v5.3-linux-arm64.tar.gz` | Same procedure on ARM64; a desktop OpenGL driver is required. |
+| macOS Apple Silicon | `Astra-v5.3-macos-arm64.tar.gz` | Extract `Astra.app`; macOS 11+; SDL2 is linked statically. |
 
 The CI Linux binaries are built on Ubuntu 24.04 and require a compatible glibc,
 typically version 2.39 or newer. On Debian/Ubuntu, the SDL2 runtime package is
@@ -70,9 +75,7 @@ Fullscreen uses a borderless window. Internal rendering is capped at 1,920
 pixels wide. Soundtrack generation uses approximately 100 MB of memory, in
 addition to the graphics driver and, on SDL ports, the audio queue.
 
-On Windows, a log named `<executable-name>.log` is created next to the binary;
-if that folder is not writable, it is written to
-`%TEMP%\Astra-startup.log`. The Windows ZIP also includes a windowed diagnostic
+The Windows ZIP includes a windowed diagnostic
 launcher. On Linux/macOS, diagnostics appear in the terminal.
 
 ## The work
@@ -118,7 +121,7 @@ cmake -S . -B build-windows \
 cmake --build build-windows --parallel
 ```
 
-The result is `build-windows/Astra-v5.2-windows-x64.exe`. CMake checks
+The result is `build-windows/Astra-v5.3-windows-x64.exe`. CMake checks
 machine-code call targets, compresses the binary with UPX, verifies its
 integrity, and fails if the resulting file exceeds **64,000 bytes**.
 `Astra-unpacked.exe` is a larger intermediate diagnostic output and is not
@@ -142,7 +145,7 @@ are intentional; see the [Windows v5.1 fix](docs/WINDOWS-v5.1-FIX.txt).
 sudo apt-get install build-essential cmake libsdl2-dev libgl1-mesa-dev python3
 cmake -S . -B build-native -DCMAKE_BUILD_TYPE=Release
 cmake --build build-native --parallel
-./build-native/Astra-v5.2-linux-x64 --windowed
+./build-native/Astra-v5.3-linux-x64 --windowed
 ```
 
 On ARM64, the output filename ends in **`linux-arm64`**. CI builds each
@@ -165,9 +168,57 @@ and links it statically. The packaged app does not require a Homebrew SDL
 installation. Rendering uses Apple's legacy OpenGL profile and matching
 framebuffer extensions; OpenGL is deprecated on macOS.
 
-## Verifications
+## GitHub Actions and releases
 
-Local verification is documented in
+The [build-release.yml](.github/workflows/build-release.yml) workflow runs on
+pushes to `main`/`master`, pull requests, `v*` tags, and manual dispatch. It
+performs:
+
+- the Windows x64 build, PE verification, and 64,000-byte size check;
+- synthesis by the actual EXE on a Windows runner;
+- Linux x64 and ARM64 builds, numerical tests, and Mesa rendering checks;
+- SDL audio queue, pause, and resume tests on Linux;
+- the macOS ARM64 build and a native test of its audio synthesis;
+- packaging with license notices and SHA-256 checksums, and releases on tags.
+
+Actions are pinned to commit SHAs and tracked by Dependabot. No personal
+secrets are required; only the publishing job receives `contents: write`
+permission. On pushes and manual runs, each platform's build job signs
+provenance for its packaged binary, archive, and SHA-256 files using
+`actions/attest`. The tagged release job checks the signed source tag,
+commit, and workflow for every file before
+publishing. Publishing waits for all four targets and the Windows test.
+
+GitHub artifact attestations are available for public repositories on all
+current GitHub plans. Private or internal repositories need GitHub Enterprise
+Cloud; this workflow requires attestations for branch and tagged builds.
+To verify a
+downloaded Windows EXE with the GitHub CLI, replace `OWNER/REPO` with the
+repository that published it:
+
+```sh
+gh attestation verify Astra-v5.3-windows-x64.exe \
+  --repo OWNER/REPO --source-ref refs/tags/v5.3 \
+  --signer-workflow OWNER/REPO/.github/workflows/build-release.yml
+```
+
+The command checks the file's SHA-256 digest, signed provenance, source
+repository, tag, and signing workflow. Add `--source-digest EXPECTED_COMMIT_SHA`
+if you already know which commit the tag should identify. The same command
+works for the ZIP and Linux/macOS archives.
+
+After pushing the repository files, publish this version with:
+
+```sh
+git tag v5.3
+git push origin v5.3
+```
+
+The tag must match `VERSION`. Update that file before each new version;
+binary filenames adjust automatically.
+
+**The workflows are provided, but their first execution on GitHub will only
+happen after the repository is uploaded.** Local verification is documented in
 [VALIDATION.md](docs/VALIDATION.md). Windows/macOS CI audio tests do not
 validate GPU rendering on those systems.
 
