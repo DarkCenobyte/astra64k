@@ -7,7 +7,7 @@ On-screen credit: **“by GPT-6 Astra”**.
 
 ![Astra — a book of light, a robotic face, a dragon, and a lotus](docs/images/astra.jpg)
 
-[▶ Watch on YouTube](https://youtu.be/n6FMgC9gWCQ)
+[▶ Watch on YouTube](https://youtu.be/2ezd5lzJEeE?si=FiPYzIMiOzEy7XNz)
 
 Astra tells the story of an artificial intelligence awakening to curiosity,
 the memory of civilizations, and the joy of creating for others. Its journey
